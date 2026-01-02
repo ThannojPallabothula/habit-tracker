@@ -10,7 +10,7 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background: #1c1c1e;
+  background: linear-gradient(160deg, #1c1c1e, #111111);
   color: #f2f2f7;
   padding: 20px;
 }
@@ -35,7 +35,9 @@ h1 { font-weight: 600; font-size: 28px; margin-bottom: 20px; }
 .remove-btn:hover { transform: scale(1.2); }
 
 .streak-info { font-size: 14px; margin-bottom: 4px; color: #8e8e93; }
-.stones-info { font-size: 13px; color: #64d2ff; margin-bottom: 10px; }
+.stones-info { font-size: 13px; color: #64d2ff; margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 4px; }
+
+.stone { background: #0a84ff; padding: 2px 6px; border-radius: 8px; font-size: 12px; }
 
 .today-btn { padding: 10px 16px; font-size: 15px; border-radius: 12px; border: none; background: #32d74b;
   color: #fff; font-weight: 600; cursor: pointer; margin-bottom: 10px; transition: filter 0.2s; }
@@ -44,7 +46,7 @@ h1 { font-weight: 600; font-size: 28px; margin-bottom: 20px; }
 .grid { display: grid; grid-template-columns: repeat(53, 18px); grid-template-rows: repeat(7,18px); gap: 3px; 
   overflow-x: auto; padding-bottom: 5px; -webkit-overflow-scrolling: touch; }
 .dabba { width: 18px; height: 18px; border-radius: 4px; background: #3a3a3c; cursor: pointer; transition: all 0.2s; }
-.dabba:hover { filter: brightness(1.3); }
+.dabba.today { border: 2px solid #ffcc00; }
 
 .grid::-webkit-scrollbar { height: 6px; }
 .grid::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
@@ -90,12 +92,27 @@ function milestonesAchieved(habitData){
 
 function updateGridColors(grid, habitData, color){
   let streakCounter = 0;
+  const today = new Date();
+  const start = new Date(today.getFullYear(),0,1);
+  const todayIndex = Math.floor((today - start)/(1000*60*60*24));
+
   for(let i=0;i<habitData.length;i++){
+    const dab = grid.children[i];
     if(habitData[i]) streakCounter++; else streakCounter=0;
     if(habitData[i]){
       let brightness = Math.min(50 + streakCounter*10, 90);
-      grid.children[i].style.backgroundColor = `hsl(${color.h}, ${color.s}%, ${brightness}%)`;
-    } else grid.children[i].style.backgroundColor = "#3a3a3c";
+      dab.style.backgroundColor = `hsl(${color.h}, ${color.s}%, ${brightness}%)`;
+    } else dab.style.backgroundColor = "#3a3a3c";
+
+    // Highlight today
+    if(i === todayIndex) dab.classList.add("today");
+    else dab.classList.remove("today");
+  }
+
+  // Auto-scroll to today
+  const todayDabba = grid.children[todayIndex];
+  if(todayDabba){
+    todayDabba.scrollIntoView({behavior:"smooth", inline:"center"});
   }
 }
 
@@ -173,7 +190,13 @@ function createHabitRow(habit){
     const streaks = calculateStreaks(habitData);
     streakDiv.textContent = `Current streak: ${streaks.current} | Best streak: ${streaks.best}`;
     const stones = milestonesAchieved(habitData);
-    stonesDiv.textContent = stones.length>0 ? `Milestones: ${stones.join(" • ")}` : '';
+    stonesDiv.innerHTML = '';
+    stones.forEach(s=>{
+      const span = document.createElement("div");
+      span.className = "stone";
+      span.textContent = s;
+      stonesDiv.appendChild(span);
+    });
   }
 
   updateGridColors(grid, habitData, habit.color);
