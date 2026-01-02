@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Habit Tracker - Colorful</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: #1c1c1e;
+  color: #f2f2f7;
+  padding: 20px;
+}
+h1 { font-weight: 600; font-size: 28px; margin-bottom: 20px; }
+
+#addHabitContainer { display: flex; gap: 10px; margin-bottom: 20px; }
+#addHabitContainer input {
+  flex: 1; padding: 10px 12px; border-radius: 12px;
+  border: none; background: #2c2c2e; color: #f2f2f7; font-size: 16px; outline: none;
+}
+#addHabitContainer button {
+  padding: 10px 16px; border-radius: 12px; border: none;
+  background: #0a84ff; color: #fff; font-weight: 600; cursor: pointer; transition: background 0.2s;
+}
+#addHabitContainer button:hover { background: #0066cc; }
+
+.habit { background: #2c2c2e; border-radius: 16px; padding: 16px; margin-bottom: 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+.habit-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.habit-name { font-weight: 600; font-size: 18px; }
+.remove-btn { background: transparent; border: none; color: #ff453a; font-size: 20px; cursor: pointer; transition: transform 0.2s; }
+.remove-btn:hover { transform: scale(1.2); }
+
+.streak-info { font-size: 14px; margin-bottom: 4px; color: #8e8e93; }
+.stones-info { font-size: 13px; color: #64d2ff; margin-bottom: 10px; }
+
+.today-btn { padding: 6px 12px; font-size: 13px; border-radius: 10px; border: none; background: #32d74b;
+  color: #fff; font-weight: 600; cursor: pointer; margin-bottom: 10px; transition: filter 0.2s; }
+.today-btn:hover { filter: brightness(1.2); }
+
+.grid { display: grid; grid-template-columns: repeat(53, 14px); grid-template-rows: repeat(7,14px); gap: 3px; overflow-x: auto; }
+.dabba { width: 14px; height: 14px; border-radius: 4px; background: #3a3a3c; cursor: pointer; transition: all 0.2s; }
+.dabba:hover { filter: brightness(1.3); }
+
+.grid::-webkit-scrollbar { height: 6px; }
+.grid::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
+
+@media(max-width:600px){
+  .grid { grid-template-columns: repeat(53, 12px); grid-template-rows: repeat(7,12px); }
+  .dabba { width: 12px; height: 12px; }
+}
+</style>
+</head>
+<body>
+
+<h1>Habit Tracker</h1>
+
+<div id="addHabitContainer">
+  <input type="text" id="newHabit" placeholder="Add a new habit">
+  <button id="addHabitBtn">Add</button>
+</div>
+
+<div id="habits-container"></div>
+
+<script>
+// Calculate streaks
+function calculateStreaks(habitData){
+  let current=0,best=0,temp=0;
+  for(let done of habitData){ if(done){ temp++; if(temp>best) best=temp; } else temp=0; }
+  temp=0;
+  for(let i=habitData.length-1;i>=0;i--){ if(habitData[i]) temp++; else break; }
+  current=temp;
+  return {current,best};
+}
+
+// Milestones
+function milestonesAchieved(habitData){
+  const streaks = calculateStreaks(habitData);
+  let milestones = [];
+  let next = 7;
+  while(next <= 365){
+    if(streaks.best >= next) milestones.push(next);
+    if(next < 28) next *= 2; else next += 28;
+  }
+  return milestones;
+}
+
+// Update the grid with habit color
+function updateGridColors(grid, habitData, color){
+  let streakCounter = 0;
+  for(let i=0;i<habitData.length;i++){
+    if(habitData[i]) streakCounter++; else streakCounter=0;
+    if(habitData[i]){
+      let brightness = Math.min(50 + streakCounter*10, 100); // % lightness
+      grid.children[i].style.backgroundColor = `hsl(${color.h}, ${color.s}%, ${brightness}%)`;
+    } else grid.children[i].style.backgroundColor = "#3a3a3c";
+  }
+}
+
+let habits = JSON.parse(localStorage.getItem("allHabits")) || [];
+
+function createHabitRow(habit){
+  if(!habit.color) habit.color = {h: Math.floor(Math.random()*360), s: 70}; // random hue + saturation
+
+  const habitDiv = document.createElement("div");
+  habitDiv.className = "habit";
+
+  const header = document.createElement("div");
+  header.className = "habit-header";
+  const title = document.createElement("div");
+  title.className = "habit-name";
+  title.textContent = habit.name;
+  const removeBtn = document.createElement("button");
+  removeBtn.className = "remove-btn";
+  removeBtn.textContent = "🗑️";
+  removeBtn.onclick = ()=>{
+    habits = habits.filter(h=>h.name!==habit.name);
+    localStorage.setItem("allHabits", JSON.stringify(habits));
+    localStorage.removeItem(habit.name);
+    habitDiv.remove();
+  };
+  header.append(title, removeBtn);
+
+  const streakDiv = document.createElement("div");
+  streakDiv.className = "streak-info";
+  const stonesDiv = document.createElement("div");
+  stonesDiv.className = "stones-info";
+
+  const todayBtn = document.createElement("button");
+  todayBtn.className = "today-btn";
+  todayBtn.textContent = "Mark Today";
+
+  const grid = document.createElement("div");
+  grid.className = "grid";
+
+  const now = new Date();
+  const year = now.getFullYear();
+  const isLeap = new Date(year,1,29).getDate() === 29;
+  const daysInYear = isLeap ? 366 : 365;
+
+  let habitData = JSON.parse(localStorage.getItem(habit.name)) || Array(daysInYear).fill(false);
+
+  habitData.forEach((done,i)=>{
+    const dabba = document.createElement("div");
+    dabba.className = "dabba";
+    const week = Math.floor(i/7);
+    const dayOfWeek = i % 7;
+    dabba.style.gridColumnStart = week+1;
+    dabba.style.gridRowStart = dayOfWeek+1;
+
+    dabba.onclick = ()=>{
+      habitData[i] = !habitData[i];
+      localStorage.setItem(habit.name, JSON.stringify(habitData));
+      updateGridColors(grid, habitData, habit.color);
+      updateDisplay();
+    };
+    grid.appendChild(dabba);
+  });
+
+  todayBtn.onclick = ()=>{
+    const start = new Date(year,0,1);
+    const todayIndex = Math.floor((now - start)/(1000*60*60*24));
+    habitData[todayIndex] = !habitData[todayIndex];
+    localStorage.setItem(habit.name, JSON.stringify(habitData));
+    updateGridColors(grid, habitData, habit.color);
+    updateDisplay();
+  };
+
+  function updateDisplay(){
+    const streaks = calculateStreaks(habitData);
+    streakDiv.textContent = `Current streak: ${streaks.current} | Best streak: ${streaks.best}`;
+    const stones = milestonesAchieved(habitData);
+    stonesDiv.textContent = stones.length>0 ? `Milestones: ${stones.join(" • ")}` : '';
+  }
+
+  updateGridColors(grid, habitData, habit.color);
+  updateDisplay();
+
+  habitDiv.append(header, streakDiv, stonesDiv, todayBtn, grid);
+  document.getElementById("habits-container").appendChild(habitDiv);
+}
+
+habits.forEach(habit=>createHabitRow(habit));
+
+document.getElementById("addHabitBtn").onclick = ()=>{
+  const name = document.getElementById("newHabit").value.trim();
+  if(!name) return;
+  const habit = {name, color:{h: Math.floor(Math.random()*360), s: 70}};
+  habits.push(habit);
+  localStorage.setItem("allHabits", JSON.stringify(habits));
+  createHabitRow(habit);
+  document.getElementById("newHabit").value='';
+};
+</script>
+
+</body>
+</html>
