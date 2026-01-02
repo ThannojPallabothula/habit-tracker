@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Habit Tracker</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+* { box-sizing: border-box; margin:0; padding:0; transition:all 0.3s; }
+body { font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:#111; color:#f2f2f7; padding:20px; }
+body.light { background:#f2f2f7; color:#111; }
+
+h1 { font-weight:600; font-size:28px; margin-bottom:20px; }
+
+#themeToggle { position:fixed; top:20px; right:20px; font-size:24px; cursor:pointer; z-index:999; }
+#themeToggle:hover { transform:scale(1.2); }
+
+#addHabitContainer { display:flex; gap:10px; margin-bottom:20px; }
+#addHabitContainer input { flex:1; padding:10px 12px; border-radius:12px; border:none; background:#2c2c2e; color:#f2f2f7; font-size:16px; }
+body.light #addHabitContainer input { background:#fff; color:#111; }
+#addHabitContainer button { padding:10px 16px; border-radius:12px; border:none; background:#0a84ff; color:#fff; font-weight:600; cursor:pointer; }
+#addHabitContainer button:hover { background:#0066cc; }
+
+.habit { background:#2c2c2e; border-radius:16px; padding:16px; margin-bottom:20px; box-shadow:0 4px 12px rgba(0,0,0,0.4); }
+body.light .habit { background:#fff; box-shadow:0 4px 12px rgba(0,0,0,0.15); color:#111; }
+
+.habit-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+.habit-name { font-weight:600; font-size:18px; }
+.remove-btn { background:transparent; border:none; color:#ff453a; font-size:22px; cursor:pointer; }
+.remove-btn:hover { transform:scale(1.2); }
+
+.streak-info { font-size:14px; margin-bottom:4px; color:#8e8e93; }
+body.light .streak-info { color:#555; }
+
+.stones-info { font-size:13px; color:#64d2ff; margin-bottom:10px; display:flex; flex-wrap:wrap; gap:4px; }
+body.light .stones-info { color:#007aff; }
+.stone { background:#0a84ff; padding:2px 6px; border-radius:8px; font-size:12px; }
+body.light .stone { background:#007aff; color:#fff; }
+
+.progress-bar { height:6px; border-radius:4px; background:#3a3a3c; margin-bottom:8px; overflow:hidden; width:100%; }
+body.light .progress-bar { background:#ccc; }
+.progress-fill { height:100%; width:0%; background:#0a84ff; border-radius:4px; transition:width 0.3s; }
+
+.today-btn { padding:10px 16px; font-size:15px; border-radius:12px; border:none; background:#32d74b; color:#fff; font-weight:600; cursor:pointer; margin-bottom:10px; }
+.today-btn:hover { filter:brightness(1.2); }
+body.light .today-btn { background:#28a745; }
+
+.grid-container { display:flex; gap:6px; position:relative; align-items:flex-start; }
+.week-labels { display:flex; flex-direction:column; justify-content:space-between; margin-right:6px; font-size:10px; color:#8e8e93; height:126px; }
+body.light .week-labels { color:#555; }
+
+.grid-wrapper { overflow-x:auto; -webkit-overflow-scrolling:touch; position:relative; flex:1; }
+.grid { display:grid; grid-template-columns:repeat(53,16px); grid-template-rows:repeat(7,16px); gap:3px; position:relative; }
+.dabba { width:16px; height:16px; border-radius:4px; background:#3a3a3c; cursor:pointer; transition:all 0.2s; }
+body.light .dabba { background:#ccc; }
+.dabba.today { border:2px solid #ffcc00; }
+.dabba.pop { transform:scale(1.5); opacity:0.7; }
+
+.month-separator { position:absolute; height:100%; width:2px; background:#8e8e93; opacity:0.3; top:0; }
+body.light .month-separator { background:#555; }
+
+.grid::-webkit-scrollbar { height:6px; }
+.grid::-webkit-scrollbar-thumb { background:#555; border-radius:3px; }
+body.light .grid::-webkit-scrollbar-thumb { background:#999; }
+
+@media(max-width:600px){
+  .grid { grid-template-columns:repeat(53,12px); grid-template-rows:repeat(7,12px); }
+  .dabba { width:12px; height:12px; }
+  .week-labels { font-size:9px; height:105px; }
+}
+</style>
+</head>
+<body>
+
+<div id="themeToggle">🌙</div>
+<h1>Habit Tracker</h1>
+
+<div id="addHabitContainer">
+  <input type="text" id="newHabit" placeholder="Add a new habit">
+  <button id="addHabitBtn">Add</button>
+</div>
+
+<div id="habits-container"></div>
+
+<script>
+// Theme toggle
+const themeToggle=document.getElementById("themeToggle");
+themeToggle.onclick=()=>{
+  document.body.classList.toggle("light");
+  themeToggle.textContent=document.body.classList.contains("light")?"🌞":"🌙";
+  localStorage.setItem("theme",document.body.classList.contains("light")?"light":"dark");
+};
+if(localStorage.getItem("theme")==="light"){ document.body.classList.add("light"); themeToggle.textContent="🌞"; }
+
+// Helpers
+function calculateStreaks(habitData){
+  let current=0,best=0,temp=0;
+  for(let done of habitData){ if(done){ temp++; if(temp>best) best=temp; } else temp=0; }
+  temp=0; for(let i=habitData.length-1;i>=0;i--){ if(habitData[i]) temp++; else break; }
+  current=temp; return {current,best};
+}
+function milestonesAchieved(habitData){
+  const streaks=calculateStreaks(habitData); let milestones=[]; let next=7;
+  while(next<=365){ if(streaks.best>=next) milestones.push(next); if(next<28) next*=2; else next+=28; }
+  return milestones;
+}
+
+// Update grid
+function updateGridColors(grid, habitData, color){
+  let streakCounter=0;
+  const today=new Date();
+  const start=new Date(today.getFullYear(),0,1);
+  const todayIndex=Math.floor((today-start)/(1000*60*60*24));
+
+  for(let i=0;i<habitData.length;i++){
+    const dab=grid.children[i];
+    if(habitData[i]) streakCounter++; else streakCounter=0;
+    if(habitData[i]) dab.style.backgroundColor=`hsl(${color.h},${color.s}%,${Math.min(50+streakCounter*10,90)}%)`;
+    else dab.style.backgroundColor=document.body.classList.contains("light")?"#ccc":"#3a3a3c";
+
+    if(i===todayIndex) dab.classList.add("today"); else dab.classList.remove("today");
+  }
+
+  const todayDabba=grid.children[todayIndex];
+  if(todayDabba) todayDabba.scrollIntoView({behavior:"smooth", inline:"center"});
+
+  // Month separators
+  const gridContainer=grid.parentElement;
+  gridContainer.querySelectorAll('.month-separator').forEach(e=>e.remove());
+  for(let m=0;m<12;m++){
+    const d=new Date(today.getFullYear(),m,1);
+    const dayIndex=Math.floor((d-start)/(1000*60*60*24));
+    if(dayIndex<habitData.length){
+      const sep=document.createElement("div");
+      sep.className="month-separator"; sep.style.left=(dayIndex*19)+"px"; gridContainer.appendChild(sep);
+    }
+  }
+}
+
+// Habit management
+let habits=JSON.parse(localStorage.getItem("allHabits"))||[];
+
+function createHabitRow(habit){
+  if(!habit.color) habit.color={h:Math.floor(Math.random()*360),s:70};
+
+  const habitDiv=document.createElement("div"); habitDiv.className="habit";
+
+  const header=document.createElement("div"); header.className="habit-header";
+  const title=document.createElement("div"); title.className="habit-name"; title.textContent=habit.name;
+  const removeBtn=document.createElement("button"); removeBtn.className="remove-btn"; removeBtn.textContent="🗑️";
+  removeBtn.onclick=()=>{
+    habits=habits.filter(h=>h.name!==habit.name); localStorage.setItem("allHabits",JSON.stringify(habits));
+    localStorage.removeItem(habit.name); habitDiv.remove();
+  };
+  header.append(title,removeBtn);
+
+  const streakDiv=document.createElement("div"); streakDiv.className="streak-info";
+  const stonesDiv=document.createElement("div"); stonesDiv.className="stones-info";
+
+  const progressBar=document.createElement("div"); progressBar.className="progress-bar";
+  const progressFill=document.createElement("div"); progressFill.className="progress-fill"; progressBar.append(progressFill);
+
+  const todayBtn=document.createElement("button"); todayBtn.className="today-btn"; todayBtn.textContent="Mark Today";
+
+  const gridContainer=document.createElement("div"); gridContainer.className="grid-container";
+  const weekLabels=document.createElement("div"); weekLabels.className="week-labels";
+  ["M","T","W","T","F","S","S"].forEach(l=>{ const label=document.createElement("div"); label.textContent=l; weekLabels.append(label); });
+  const gridWrapper=document.createElement("div"); gridWrapper.className="grid-wrapper";
+  const grid=document.createElement("div"); grid.className="grid"; gridWrapper.append(grid); gridContainer.append(weekLabels,gridWrapper);
+
+  const now=new Date(); const year=now.getFullYear();
+  const isLeap=new Date(year,1,29).getDate()===29; const daysInYear=isLeap?366:365;
+  let habitData=JSON.parse(localStorage.getItem(habit.name))||Array(daysInYear).fill(false);
+
+  habitData.forEach((done,i)=>{
+    const dab=document.createElement("div"); dab.className="dabba";
+    const week=Math.floor(i/7), dayOfWeek=i%7;
+    dab.style.gridColumnStart=week+1; dab.style.gridRowStart=dayOfWeek+1;
+    dab.onclick=()=>{
+      habitData[i]=!habitData[i]; localStorage.setItem(habit.name,JSON.stringify(habitData));
+      dab.classList.add("pop"); setTimeout(()=>{dab.classList.remove("pop");},200);
+      updateGridColors(grid,habitData,habit.color); updateDisplay();
+    };
+    grid.appendChild(dab);
+  });
+
+  todayBtn.onclick=()=>{
+    const start=new Date(year,0,1); const todayIndex=Math.floor((now-start)/(1000*60*60*24));
+    habitData[todayIndex]=!habitData[todayIndex]; localStorage.setItem(habit.name,JSON.stringify(habitData));
+    const todayDabba=grid.children[todayIndex]; todayDabba.classList.add("pop");
+    setTimeout(()=>{todayDabba.classList.remove("pop");},200);
+    updateGridColors(grid,habitData,habit.color); updateDisplay();
+  };
+
+  function updateDisplay(){
+    const streaks=calculateStreaks(habitData);
+    streakDiv.textContent=`Current streak: ${streaks.current} | Best streak: ${streaks.best}`;
+    const stones=milestonesAchieved(habitData); stonesDiv.innerHTML='';
+    stones.forEach(s=>{ const span=document.createElement("div"); span.className="stone"; span.textContent=s; stonesDiv.append(span); });
+    progressFill.style.width=Math.min(100,Math.round(streaks.current/streaks.best*100))+"%";
+  }
+
+  updateGridColors(grid,habitData,habit.color); updateDisplay();
+  habitDiv.append(header,streakDiv,stonesDiv,progressBar,todayBtn,gridContainer);
+  document.getElementById("habits-container").appendChild(habitDiv);
+}
+
+habits.forEach(habit=>createHabitRow(habit));
+
+document.getElementById("addHabitBtn").onclick=()=>{
+  const name=document.getElementById("newHabit").value.trim(); if(!name) return;
+  const habit={name,color:{h:Math.floor(Math.random()*360),s:70}};
+  habits.push(habit); localStorage.setItem("allHabits",JSON.stringify(habits));
+  createHabitRow(habit); document.getElementById("newHabit").value='';
+};
+</script>
+</body>
+</html>
