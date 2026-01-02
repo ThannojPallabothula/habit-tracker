@@ -7,49 +7,70 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; transition: background 0.3s, color 0.3s; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: linear-gradient(160deg, #1c1c1e, #111111);
   color: #f2f2f7;
   padding: 20px;
+  transition: background 0.5s, color 0.5s;
 }
+body.light { background: linear-gradient(160deg, #f2f2f7, #e6e6e6); color: #111; }
+
 h1 { font-weight: 600; font-size: 28px; margin-bottom: 20px; }
+
+#themeToggle {
+  position: fixed; top: 20px; right: 20px;
+  font-size: 24px; cursor: pointer; user-select: none; z-index: 999;
+  transition: transform 0.3s;
+}
+#themeToggle:hover { transform: scale(1.2); }
 
 #addHabitContainer { display: flex; gap: 10px; margin-bottom: 20px; }
 #addHabitContainer input {
   flex: 1; padding: 10px 12px; border-radius: 12px;
   border: none; background: #2c2c2e; color: #f2f2f7; font-size: 16px; outline: none;
+  transition: background 0.3s, color 0.3s;
 }
+body.light #addHabitContainer input { background: #fff; color: #111; }
 #addHabitContainer button {
   padding: 10px 16px; border-radius: 12px; border: none;
-  background: #0a84ff; color: #fff; font-weight: 600; cursor: pointer; transition: background 0.2s;
+  background: #0a84ff; color: #fff; font-weight: 600; cursor: pointer; transition: background 0.3s;
 }
 #addHabitContainer button:hover { background: #0066cc; }
 
 .habit { background: #2c2c2e; border-radius: 16px; padding: 16px; margin-bottom: 20px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4); transition: background 0.3s; }
+body.light .habit { background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.15); color: #111; }
+
 .habit-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .habit-name { font-weight: 600; font-size: 18px; }
 .remove-btn { background: transparent; border: none; color: #ff453a; font-size: 22px; cursor: pointer; transition: transform 0.2s; }
 .remove-btn:hover { transform: scale(1.2); }
 
-.streak-info { font-size: 14px; margin-bottom: 4px; color: #8e8e93; }
-.stones-info { font-size: 13px; color: #64d2ff; margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 4px; }
+.streak-info { font-size: 14px; margin-bottom: 4px; color: #8e8e93; transition: color 0.3s; }
+body.light .streak-info { color: #555; }
+.stones-info { font-size: 13px; color: #64d2ff; margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 4px; transition: color 0.3s; }
+body.light .stones-info { color: #007aff; }
 
 .stone { background: #0a84ff; padding: 2px 6px; border-radius: 8px; font-size: 12px; }
+body.light .stone { background: #007aff; color: #fff; }
 
 .today-btn { padding: 10px 16px; font-size: 15px; border-radius: 12px; border: none; background: #32d74b;
-  color: #fff; font-weight: 600; cursor: pointer; margin-bottom: 10px; transition: filter 0.2s; }
+  color: #fff; font-weight: 600; cursor: pointer; margin-bottom: 10px; transition: filter 0.2s, background 0.3s; }
 .today-btn:hover { filter: brightness(1.2); }
+body.light .today-btn { background: #28a745; color: #fff; }
 
 .grid { display: grid; grid-template-columns: repeat(53, 18px); grid-template-rows: repeat(7,18px); gap: 3px; 
-  overflow-x: auto; padding-bottom: 5px; -webkit-overflow-scrolling: touch; }
+  overflow-x: auto; padding-bottom: 5px; -webkit-overflow-scrolling: touch; transition: background 0.3s; }
 .dabba { width: 18px; height: 18px; border-radius: 4px; background: #3a3a3c; cursor: pointer; transition: all 0.2s; }
+body.light .dabba { background: #ccc; }
 .dabba.today { border: 2px solid #ffcc00; }
+.dabba.pop { transform: scale(1.5); opacity: 0.7; }
 
 .grid::-webkit-scrollbar { height: 6px; }
 .grid::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
+body.light .grid::-webkit-scrollbar-thumb { background: #999; }
 
 @media(max-width:600px){
   .grid { grid-template-columns: repeat(53, 14px); grid-template-rows: repeat(7,14px); }
@@ -59,6 +80,7 @@ h1 { font-weight: 600; font-size: 28px; margin-bottom: 20px; }
 </head>
 <body>
 
+<div id="themeToggle">🌙</div>
 <h1>Habit Tracker</h1>
 
 <div id="addHabitContainer">
@@ -69,6 +91,20 @@ h1 { font-weight: 600; font-size: 28px; margin-bottom: 20px; }
 <div id="habits-container"></div>
 
 <script>
+// Theme toggle
+const themeToggle = document.getElementById("themeToggle");
+themeToggle.onclick = () => {
+  document.body.classList.toggle("light");
+  themeToggle.textContent = document.body.classList.contains("light") ? "🌞" : "🌙";
+  localStorage.setItem("theme", document.body.classList.contains("light") ? "light" : "dark");
+};
+
+// Load theme
+if(localStorage.getItem("theme") === "light") {
+  document.body.classList.add("light");
+  themeToggle.textContent = "🌞";
+}
+
 // Helper functions
 function calculateStreaks(habitData){
   let current=0,best=0,temp=0;
@@ -102,18 +138,14 @@ function updateGridColors(grid, habitData, color){
     if(habitData[i]){
       let brightness = Math.min(50 + streakCounter*10, 90);
       dab.style.backgroundColor = `hsl(${color.h}, ${color.s}%, ${brightness}%)`;
-    } else dab.style.backgroundColor = "#3a3a3c";
+    } else dab.style.backgroundColor = document.body.classList.contains("light") ? "#ccc" : "#3a3a3c";
 
-    // Highlight today
     if(i === todayIndex) dab.classList.add("today");
     else dab.classList.remove("today");
   }
 
-  // Auto-scroll to today
   const todayDabba = grid.children[todayIndex];
-  if(todayDabba){
-    todayDabba.scrollIntoView({behavior:"smooth", inline:"center"});
-  }
+  if(todayDabba) todayDabba.scrollIntoView({behavior:"smooth", inline:"center"});
 }
 
 // Habit management
@@ -171,6 +203,11 @@ function createHabitRow(habit){
     dabba.onclick = ()=>{
       habitData[i] = !habitData[i];
       localStorage.setItem(habit.name, JSON.stringify(habitData));
+
+      // Animate tap
+      dabba.classList.add("pop");
+      setTimeout(()=>{ dabba.classList.remove("pop"); },200);
+
       updateGridColors(grid, habitData, habit.color);
       updateDisplay();
     };
@@ -182,6 +219,11 @@ function createHabitRow(habit){
     const todayIndex = Math.floor((now - start)/(1000*60*60*24));
     habitData[todayIndex] = !habitData[todayIndex];
     localStorage.setItem(habit.name, JSON.stringify(habitData));
+
+    const todayDabba = grid.children[todayIndex];
+    todayDabba.classList.add("pop");
+    setTimeout(()=>{ todayDabba.classList.remove("pop"); },200);
+
     updateGridColors(grid, habitData, habit.color);
     updateDisplay();
   };
